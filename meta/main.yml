@@ -53,14 +53,9 @@ galaxy_info:
   #  - 9.1
   #  - 9.2
   - name: Ubuntu
-  #  versions:
-  #  - all
+    versions:
     - lucid
-  #  - maverick
-  #  - natty
-  #  - oneiric
     - precise
-  #  - quantal
     - raring
     - saucy
     - trusty
@@ -78,10 +73,7 @@ galaxy_info:
   #  - all
   #  - any
   - name: Debian
-  #  versions:
-  #  - all
-  #  - etch
-  #  - lenny
+    versions:
     - squeeze
     - wheezy
   #
