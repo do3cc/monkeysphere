@@ -1,0 +1,43 @@
+---
+# Defines tasks applicable for all machines
+
+- name: Install monkeysphere
+  apt: pkg={{ item }}
+  with_items:
+    - monkeysphere
+
+- name: Add hostkey to monkeysphere
+  shell:/usr/sbin/monkeysphere-host import-key /etc/ssh/ssh_host_rsa_key ssh://{{ ansible_fqdn }} creates=/var/lib/monkeysphere/host_keys.pub.pgp
+  when: monkeysphere_publish_hostkey
+
+- name: Publish hostkey
+  shell:/usr/sbin/monkeysphere-host publish-key
+  when: monkeysphere_publish_hostkey
+
+- name: Show the newly published key 1
+  shell:/usr/sbin/monkeysphere-host show-key creates=/var/lib/monkeysphere/host_keys.pub.pgp
+  register: key
+  when: monkeysphere_publish_hostkey
+
+- name: Show the newly published key 2
+  debug: var=key.stdout
+  when: monkeysphere_publish_hostkey
+
+- name: Ask admin to download and sign the new key
+  pause: prompt="Download key with \"gpg --search '=ssh://{{ ansible_fqdn }}'\" and control it against the output above, sign it with \"gpg --sign-key '=ssh://{{ ansible_fqdn }}'\" and finally upload it with \"gpg --list-keys '=ssh://{{ ansible_fqdn }}'; gpg --send-key <fingerprint>\" Press enter to continue"
+  when: monkeysphere_publish_hostkey
+
+- name: register the monkeysphere identity-certifiers
+  shell:/usr/sbin/monkeysphere-authentication list-id-certifiers | grep {{ item }} || ( yes|monkeysphere-authentication add-identity-certifier {{ item }})
+  register: registration
+  changed_when: "'Identity certifier added' in registration.stdout"
+  with_items: monkeysphere_certifiers_fingerprints
+  notify: update keys
+
+- name: Configure sshd to look for the additional authorized files location
+  lineinfile: dest=/etc/ssh/sshd_config line="AuthorizedKeysFile /var/lib/monkeysphere/authorized_keys/%u"
+  notify: update keys
+  notify: restart ssh
+
+- name: Register cron entry for daily authorized_keys update
+  cron: name="update public keys" special_time=daily job="/usr/sbin/monkeysphere-authentication update-users"
